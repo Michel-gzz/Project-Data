@@ -1,0 +1,982 @@
+!pip install geopandas
+
+import pandas as pd
+import altair as alt
+import numpy as np
+import geopandas as gpd
+
+# disables the 5000 data object limit in google Colab
+alt.data_transformers.disable_max_rows()
+
+job_cats = ['Public Safety, Inspections, & Enforcement',
+            'Building Operations & Maintenance',
+            'Engineering, Architecture, & Planning',
+            'Legal',
+            'Technology',
+            'Constituent Services & Community Programs',
+            'Social Services',
+            'Policy',
+            'Administration & Human Resources',
+            'Finance, Accounting, & Procurement',
+            'Health',
+            'Communications & Intergovernmental',
+            'Clerical & Administrative Support']
+
+
+# A list of the years in the data
+
+years = ['2013', '2014', '2015', 
+         '2016', '2017', '2018', 
+         '2019', '2020', '2021', 
+         '2022']
+
+# A dictionary of address to zipcode           
+
+address_dict = {'1 Battery Park Plaza': 10004,
+                '1 Bay St., S.I.,Ny': 10301,
+                '1 Centre St., N.Y.': 10007,
+                '1 Court Square, Queens': 11101,
+                '1 Fordham Plaza, Bronx': 10458,
+                '1 Liberty Plaza NYC': 10005,
+                '1 Metro Tech, Brooklyn Ny': 11201,
+                '1 Police Plaza, N.Y.': 10038,
+                '10 Walker Rd, Valhalla NY': 10043,
+                '100 Central Park Ave N Yonkers': 10019,
+                '100 Church St., N.Y': 10007,
+                '100 Gold Street': 10038,
+                '1000 Sutter Ave., Brooklyn': 11208,
+                '1010 East 178th Street': 10460,
+                '105 East 106 Street, New York,': 10029,
+                '105 St & 5 Ave': 10029,
+                '109 E 16Th St., N.Y.': 10003,
+                '11 Park Place, New York, Ny': 10007,
+                '111 Livingston St., Bklyn., N.': 11201,
+                '120 Broadway, New York, NY': 10271,
+                '120-55 Queens Blvd, Queens Ny': 0,
+                '123 William Street, NY, NY': 10038,
+                '125 Worth Street, Nyc': 10013,
+                '1270 Victory Blvd, Staten Isl': 10301,
+                '130 Stuyvesant Place, S.I.': 10301,
+                '130-30 28th Ave': 11354,
+                '14 St/Union Square, New York N': 10003,
+                '140 58th Street': 11220,
+                '1400 Williamsbridge Rd., Bronx': 10461,
+                '144-06 94Th Avenue, Jamaica Ny': 11435,
+                '15 Metrotech': 11201,
+                '15 Skyline Drive': 10304,
+                '150 William Street, New York N': 10038,
+                '150-14 Jamaica Ave': 11432,
+                '151 East 151st Street': 10451,
+                '151 Maujer St., Brooklyn': 11206,
+                '155 West Broadway New York N Y': 10013,
+                '158 E 115Th St., N.Y.': 10029,
+                '16 Court St': 11217,
+                '16 Court Street': 11241,
+                '160 West 100Th Street Ny': 10025,
+                '1601 Ave. S, Brooklyn': 11229,
+                '161 William St  New York N Y': 10038,
+                '165 Cadman Plaza East': 11201,
+                '1664 Park Avenue': 10035,
+                '167-02 Baisley Blvd Queens': 11434,
+                '17 Bristol Street Brooklyn Ny': 11212,
+                '1775 Grand Concourse Bronx N.Y': 10453,
+                '1777 Third Avenue N.Y, N.Y.': 10029,
+                '1780 Ocean Avenue': 11230,
+                '1780 Ocean Avenue:': 11230,
+                '180 Maiden Lane': 10005,
+                '1844 Brooklyn Ave., Brooklyn': 11210,
+                '1932 Arthur Ave 2Nd Flr Bronx': 10457,
+                '1932 Arthur Ave, Bronx': 10457,
+                '198 E 161st Street': 10451,
+                '2 Lafayette St., N.Y.': 10007,
+                '2 Metro Tech': 11201,
+                '20 Westlake Drive': 0,
+                '210 Joralemon St., Brooklyn': 11201,
+                '211 Union Ave., Brooklyn': 11211,
+                '22 Cortlandt Street': 10007,
+                '22 Nyc Highway 30A, Downsville': 0,
+                '22 Reade St, Ny': 10007,
+                '233 Broadway': 10279,
+                '233 Schermerhorn Street, Bklyn': 11201,
+                '235 E 20Th St., N.Y.': 10010,
+                '2389 Route 28A, Shokan, Ny': 10260,
+                '24 West 61 Street': 10023,
+                '240-250-252 Livingston Street': 11201,
+                '2405 Amsterdam Ave., N.Y.': 10033,
+                '250 Broadway, N.Y.': 10007,
+                '251 Lafayette St., N.Y.': 10012,
+                '253 Broadway New York Ny': 10007,
+               '255 Greenwich Street': 10007,
+                '26 Central Avenue, S.I.,': 10301,
+                '260 Eleventh Ave., N.Y.': 10011,
+                '263 Tompkins Ave., Brooklyn': 11216,
+                '28-11 Queens Plaza No., L.I.C.': 11101,
+                '280 Broadway, 3rd Floor, N.Y.': 10007,
+                '280 Broadway, 4th Floor, N.Y.': 10007,
+                '280 Broadway, 5th Floor, N.Y.': 10007,
+                '280 Broadway, 6th Floor, N.Y.': 10007,
+                '280 Broadway, 7th Floor, N.Y.': 10007,
+                '2943 W. 28Th St. Bklyn N Y': 11224,
+                '295 Flatbush Ext Brooklyn': 11201,
+                '2951 W 8Th St., Brooklyn': 11224,
+                '30 Ralph Ave., Brooklyn': 11221,
+                '30-30 47TH AVE': 11101,
+                '30-30 Thomson Ave L I City Qns': 11101,
+                '30-48 Linden Place': 11354,
+                '300 Gold St, Brooklyn Ny': 11201,
+                '301 Gold St., Brooklyn': 11201,
+                '31 Chambers St., N.Y.': 10007,
+                '31-00 47 Ave, 3 FL, LIC NY': 11101,
+                '316 East 88 Street, New York N': 10128,
+                '325 Hudson St., N.Y.': 10013,
+                '329 Greenpoint Ave., Brooklyn': 11222,
+                '33 Beaver St, New York Ny': 10004,
+                '33-00 Northern Blvd., Lic Ny': 11101,
+                '33-28 No Blvd., Queens': 11101,
+                '335 Adams Street, Brooklyn Ny': 11201,
+                '48-67 34Th St., Queens':11106,
+                '58-52 Grand Ave, Maspeth Queen':11378,
+                '59-06 Laurel Hill Blvd':11377,
+                '60 Centre St.':10007,
+                '34-02 Queens Boulevard Long Is': 11101,
+                '34-33 Junction Blvd Queens': 11372,
+                '3450 Kingsbridge Ave., Bronx': 10463,
+                '350 Jay St, Brooklyn  Ny': 11201,
+                '356 Flushing Ave, Brooklyn': 11205,
+                '3701 Jerome Ave, Bx NY 10467': 10467,
+                '375 Pearl Street': 10038,
+                '4 World Trade Center': 10006,
+                '415 East 203 St, Bronx': 10467,
+                '42 Broadway, N.Y.': 10004,
+                '42-09 28th Street': 11101,
+                '420 East 26Th St Ny Ny': 10010,
+                '421 East 26th Street NY NY': 10016,
+                '44 Beaver St., N.Y.': 10004,
+                '455 First Ave., N.Y.': 10016,
+                '465 Columbus Ave. Valhalla, Ny': 10024,
+                '470 Vanderbilt Ave': 11238,
+                '492 First Avenue, New York, Ny': 10016,
+                '5 Manhattan West': 10001,
+                '50-16 59Th Pl., Queens': 11377,
+                '516 Bergen St., Brooklyn': 11217,
+                '52-35 58Th St., Woodside, Ny': 11377,
+                '520 1St Ave., N.Y.': 10016,
+                '524 West 42nd Street': 10036,
+                '53-15 58Th St., Queens': 11377,
+                '54 Croton Falls Road': 0,
+                '55 Water St Ny Ny': 10041,
+                '5503 Route 9W marlboro': 10310,
+                '59 East 4th Street': 10003,
+                '59 Maiden Lane': 10038,
+                '59-17 Junction Blvd Corona Ny': 11373,
+                '600 W 168Th St., N.Y.': 10032,
+                '6016 Flatlands Ave, Bklyn': 11236,
+                '625 Father Capodonno Blvd': 10305,
+                '65 Worth St., N.Y.': 10013,
+                '66 John Street, New York, Ny': 10038,
+                '66-26 Metropolitan Ave., Queen': 11379,
+                '669 County Road 38': 10097,
+                '68-40 Austin St., Queens': 11375,
+                '70 E 4Th St., N.Y.': 10003,
+                '71 Smith Avenue, Kingston, Ny': 11201,
+                '71-01 Parsons Blvd': 11365,
+                '715 Ocean Terrace, Staten Is N': 10301,
+                '75-20 Astoria Blvd': 11370,
+                '78-88 Park Drive East QueensNY': 11367,
+                '7870 State Rd 42 Grahamsville,': 10203,
+                '80 Centre St., N.Y.': 10013,
+                '80 Centre St., N.y.': 10013,
+                '830 4Th Ave., Brooklyn': 11232,
+                '87-34 118Th St., Queens': 11418,
+                '88-26 Pitkin Avenue': 11417,
+                '9 Metrotech Center, Brooklyn N': 11201,
+                '90-27 Sutphin Blvd, Queens Ny': 11435,
+                '900 Sheridan Ave., Bronx': 10451,
+                '95 Evergreen Ave Brooklyn': 11206,
+                '96-05 Horace Harding Expway': 11368,
+                'ACCTOPS-Office of Director': 0,
+                'AFS-Office ofController': 10007,
+                'AFS-Revenue & Receivables': 0,
+                'Administration': 0,
+                'Administrative Hearing Div': 10007,
+                'Amsterdam-Harborview Terrace': 10019,
+                'Analysis & Reporting': 0,
+                'Arsenal 830 Fifth Ave, New Yor': 10065,
+                'Baruch': 10010,
+                'Boro Hall Richmond, Staten Isl': 10007,
+                'Bronx Floating Staff': 0,
+                'Bronx Hdqt., 1 Bx Rvr Pkwy., B': 10462,
+                'Bronx Neighborhood 02': 10460,
+                'Bronx Neighborhood 08': 10471,
+                'Brooklyn Floating Staff': 0,
+                'Brownsville': 11212,
+                'Budget-Office Of Director': 0,
+                'Bushwick': 11206,
+                'CP Cap Plan-Financial Planning': 0,
+                'CP Cap Plan-Technical Planning': 0,
+                'CP QA Comp & Training - QA': 0,
+                'CP Recovery & Resilience-VP': 0,
+                'Capital Projects-EVP': 0,
+                'Chelsea Addition - Elliot': 10001,
+                'Chief Asset & Cap Mgt Officer': 0,
+                'Clove Lake, Faber & W. Brighto': 10301,
+                'Compliance & Training': 0,
+                'Construction, Safety & Quality': 0,
+                'Corporate Secretary': 0,
+                'Default': 0,
+                'Design-Architecture': 0,
+                'Design-Engineering': 0,
+                'ESM-Program & Portfolio Mgt': 0,
+                'East New York, Brooklyn Ny': 11207,
+                'Eastchester Gardens': 10469,
+                'Edenwald': 10466,
+                'Elevator Svcs & Repair': 0,
+                'Elevator Svcs & Repair (C.O.)': 0,
+                'Elevator Svcs & Repair (Field)': 0,
+                'Environmental Health & Safety': 0,
+                'Family PTRS - Brooklyn': 0,
+                'Field Operations Office of DIR': 10018,
+                'Flushing Meadow Pk Olmsted Ctr': 11368,
+                'Foil': 0,
+                'Forest Pk 80-30 Park Lane Quee': 11415,
+                'Fort Totten, Ny': 11359,
+                'Fulton': 10038,
+                'General Litigation': 0,
+                'Grant Houses': 10027,
+                'Hammel': 11693,
+                'Hazen St-A.M.K.C., E. Elm, Ny': 11370,
+                'Hazen St-G.M.D.C., E. Elm, Ny': 11370,
+                'Hazen St-Trans. Div., E. Elm,': 11370,
+                'Heating Mgt-Operations': 0,
+                'Human Resources-Employment Div': 0,
+                'Human Resources-Records Contro': 10278,
+                'I&O-Infrastructure Management': 0,
+                'IT Svcs Mgt-Desktop & Device': 0,
+                'Kingsborough': 11235,
+                'Landlord & Tenant': 0,
+                'Law Dept-Civil Litigation': 0,
+                'Law-Housing Litigation': 0,
+                'Law-Tort Division': 0,
+                'Lower E. Side Consolidation': 0,
+                'Manhattan Comm Development': 0,
+                'Manhattan Floating Staff': 0,
+                'Marcy Houses': 11206,
+                'Marlboro': 0,
+                'Mold ASMT & Remediation-DIR': 0,
+                'Monroe-Clason Point': 10473,
+                'Mott Haven': 10451,
+                'NYC - All Boroughs': 0,
+                "O'Dwyer Gardens": 11224,
+                'OCSE Central Court Svcs': 11201,
+                'Ocean Hill-Saratoga Village': 11233,
+                'Office Of Public Information': 10162,
+                'Office Of The Chair': 11249,
+                'Office Of The Inspector Genera': 10006,
+                'Office for Exec Proj Manager': 0,
+                'Office of Security': 0,
+                'Office of the Chief Op Officer': 10155,
+                'Office of the Director': 0,
+                'Operational Analysis': 0,
+                'PM Operation Dept/Office Dir': 0,
+                'Paint Administration': 0,
+                'Perf Tracking and Analytics': 0,
+                'Po Box 93 Woodlawn, Bronx': 10473,
+                'Procedures Development & Admin': 0,
+                'Prospect Pk 95 Ppw &5Th St': 11215,
+                'Public Housing Op - DIR': 0,
+                'Purchasing': 0,
+                'QN/SI Neighborhood 04': 0,
+                'Queens-SI Floating Staff': 0,
+                'Queensbridge South': 11101,
+                'R E DEV FOR Preservation': 0,
+                'REES - Adult Ed & Training': 0,
+                'REES - Intake & Outreach': 11238,
+                'REES - Job Generation': 0,
+                'REES - Zone Coordination': 0,
+                'RES Engmt-Zone Coordination': 0,
+                'Randalls Island 5-Boro Shops': 10454,
+                'Randalls Island, N.Y.': 10035,
+                'Records Management': 0,
+                'Resident Engagement': 0,
+                'Rikers Island': 11370,
+                'SVP for Performance Mgt & Anly': 10119,
+                'Sands & Navy Street  Bklyn N Y': 11201,
+                'Strategy & Operations-VP': 0,
+                'Sumner': 11206,
+                'TEMPO CU6': 10286,
+                'VP Office-Op Anlys & Cont Mgmt': 0,
+                'VP Office-Transactions': 0,
+                'VP-Cyber Sec & IT Risk Mgmt': 0,
+                'VP-Enterprise Solutions Mgmt': 0,
+                'VP-Intergovernmental Affairs': 0,
+                'Waste Management': 10022}
+
+
+zip_names_dict = {11436 : 'Queens',
+                  11213 : 'Brooklyn',
+                  11212 : 'Brooklyn',
+                  11225 : 'Brooklyn',
+                  11218 : 'Brooklyn',
+                  11226 : 'Brooklyn',
+                  11219 : 'Brooklyn',
+                  11210 : 'Brooklyn',
+                  11230 : 'Brooklyn',
+                  11204 : 'Brooklyn',
+                  10471 : 'Bronx',
+                  10470 : 'Bronx',
+                  10466 : 'Bronx',
+                  10467 : 'Bronx',
+                  10463 : 'Bronx',
+                  10463 : 'Manhattan',
+                  10475 : 'Bronx',
+                  10464 : 'Bronx',
+                  10464 : 'Bronx',
+                  10464 : 'Bronx',
+                  10469 : 'Bronx',
+                  10468 : 'Bronx',
+                  10458 : 'Bronx',
+                  10034 : 'Manhattan',
+                  10033 : 'Manhattan',
+                  10462 : 'Bronx',
+                  10040 : 'Manhattan',
+                  10453 : 'Bronx',
+                  10465 : 'Bronx',
+                  10461 : 'Bronx',
+                  10457 : 'Bronx',
+                  10460 : 'Bronx',
+                  10032 : 'Manhattan',
+                  10452 : 'Bronx',
+                  10456 : 'Bronx',
+                  10472 : 'Bronx',
+                  10031 : 'Manhattan',
+                  10039 : 'Manhattan',
+                  10459 : 'Bronx',
+                  10451 : 'Bronx',
+                  10473 : 'Bronx',
+                  10030 : 'Manhattan',
+                  10027 : 'Manhattan',
+                  10474 : 'Bronx',
+                  10455 : 'Bronx',
+                  10037 : 'Manhattan',
+                  10024 : 'Manhattan',
+                  10454 : 'Bronx',
+                  10026 : 'Manhattan',
+                  10035 : 'Manhattan',
+                  10035 : 'Manhattan',
+                  10048 : 'Manhattan',
+                  10025 : 'Manhattan',
+                  11357 : 'Queens',
+                  10029 : 'Manhattan',
+                  83 : 'Manhattan',
+                  11356 : 'Queens',
+                  11359 : 'Queens',
+                  11360 : 'Queens',
+                  11105 : 'Queens',
+                  10128 : 'Manhattan',
+                  10023 : 'Manhattan',
+                  11363 : 'Queens',
+                  10028 : 'Manhattan',
+                  11354 : 'Queens',
+                  11102 : 'Queens',
+                  11370 : 'Queens',
+                  11370 : 'Bronx',
+                  10021 : 'Manhattan',
+                  11358 : 'Queens',
+                  11362 : 'Queens',
+                  10044 : 'Manhattan',
+                  11369 : 'Queens',
+                  11103 : 'Queens',
+                  11106 : 'Queens',
+                  11368 : 'Queens',
+                  11377 : 'Queens',
+                  11355 : 'Queens',
+                  11101 : 'Queens',
+                  11364 : 'Queens',
+                  10018 : 'Manhattan',
+                  10020 : 'Manhattan',
+                  11005 : 'Queens',
+                  10017 : 'Manhattan',
+                  10001 : 'Manhattan',
+                  10011 : 'Manhattan',
+                  10016 : 'Manhattan',
+                  11104 : 'Queens',
+                  11109 : 'Queens',
+                  10010 : 'Manhattan',
+                  11367 : 'Queens',
+                  10014 : 'Manhattan',
+                  10003 : 'Manhattan',
+                  11222 : 'Brooklyn',
+                  10002 : 'Manhattan',
+                  11378 : 'Queens',
+                  10009 : 'Manhattan',
+                  10012 : 'Manhattan',
+                  10013 : 'Manhattan',
+                  10007 : 'Manhattan',
+                  11237 : 'Brooklyn',
+                  11385 : 'Queens',
+                  10038 : 'Manhattan',
+                  11206 : 'Brooklyn',
+                  10006 : 'Manhattan',
+                  11412 : 'Queens',
+                  10005 : 'Manhattan',
+                  11251 : 'Brooklyn',
+                  10004 : 'Manhattan',
+                  10004 : 'Manhattan',
+                  10004 : 'Manhattan',
+                  10004 : 'Manhattan',
+                  11411 : 'Queens',
+                  11201 : 'Brooklyn',
+                  11205 : 'Brooklyn',
+                  11208 : 'Brooklyn',
+                  11207 : 'Brooklyn',
+                  11413 : 'Queens',
+                  11217 : 'Brooklyn',
+                  11238 : 'Brooklyn',
+                  11231 : 'Brooklyn',
+                  11231 : 'Brooklyn',
+                  11422 : 'Queens',
+                  11420 : 'Queens',
+                  11417 : 'Queens',
+                  11215 : 'Brooklyn',
+                  11232 : 'Brooklyn',
+                  11430 : 'Queens',
+                  11203 : 'Brooklyn',
+                  11239 : 'Brooklyn',
+                  11236 : 'Brooklyn',
+                  11220 : 'Brooklyn',
+                  10301 : 'Staten Island',
+                  10303 : 'Staten Island',
+                  11234 : 'Brooklyn',
+                  10302 : 'Staten Island',
+                  11693 : 'Queens',
+                  11693 : 'Queens',
+                  11693 : 'Queens',
+                  11693 : 'Brooklyn',
+                  11209 : 'Brooklyn',
+                  10304 : 'Staten Island',
+                  10314 : 'Staten Island',
+                  11228 : 'Brooklyn',
+                  11096 : 'Queens',
+                  11096 : 'Queens',
+                  10305 : 'Staten Island',
+                  11229 : 'Brooklyn',
+                  11214 : 'Brooklyn',
+                  11691 : 'Queens',
+                  11223 : 'Brooklyn',
+                  11692 : 'Queens',
+                  11235 : 'Brooklyn',
+                  10306 : 'Staten Island',
+                  11694 : 'Queens',
+                  11224 : 'Brooklyn',
+                  10308 : 'Staten Island',
+                  11697 : 'Queens',
+                  10312 : 'Staten Island',
+                  10309 : 'Staten Island',
+                  10307 : 'Staten Island',
+                  10280 : 'Manhattan',
+                  11372 : 'Queens',
+                  11004 : 'Queens',
+                  11040 : 'Queens',
+                  11426 : 'Queens',
+                  11365 : 'Queens',
+                  11001 : 'Queens',
+                  11375 : 'Queens',
+                  11427 : 'Queens',
+                  11374 : 'Queens',
+                  11366 : 'Queens',
+                  11423 : 'Queens',
+                  11428 : 'Queens',
+                  11432 : 'Queens',
+                  11379 : 'Queens',
+                  11429 : 'Queens',
+                  11435 : 'Queens',
+                  11415 : 'Queens',
+                  11418 : 'Queens',
+                  11433 : 'Queens',
+                  11451 : 'Queens',
+                  11221 : 'Brooklyn',
+                  11421 : 'Queens',
+                  11419 : 'Queens',
+                  11434 : 'Queens',
+                  11216 : 'Brooklyn',
+                  11416 : 'Queens',
+                  11233 : 'Brooklyn',
+                  10055 : 'Manhattan',
+                  10019 : 'Manhattan',
+                  10111 : 'Manhattan',
+                  10153 : 'Manhattan',
+                  10154 : 'Manhattan',
+                  10152 : 'Manhattan',
+                  10115 : 'Manhattan',
+                  10022 : 'Manhattan',
+                  10065 : 'Manhattan',
+                  10075 : 'Manhattan',
+                  10069 : 'Manhattan',
+                  10281 : 'Manhattan',
+                  10282 : 'Manhattan',
+                  11211 : 'Brooklyn',
+                  11373 : 'Queens',
+                  10279 : 'Manhattan',
+                  10165 : 'Manhattan',
+                  10168 : 'Manhattan',
+                  10105 : 'Manhattan',
+                  10118 : 'Manhattan',
+                  10176 : 'Manhattan',
+                  10170 : 'Manhattan',
+                  10112 : 'Manhattan',
+                  10122 : 'Manhattan',
+                  10107 : 'Manhattan',
+                  10103 : 'Manhattan',
+                  10174 : 'Manhattan',
+                  10166 : 'Manhattan',
+                  10169 : 'Manhattan',
+                  10167 : 'Manhattan',
+                  10177 : 'Manhattan',
+                  10172 : 'Manhattan',
+                  10171 : 'Manhattan',
+                  10270 : 'Manhattan',
+                  10104 : 'Manhattan',
+                  10271 : 'Manhattan',
+                  10110 : 'Manhattan',
+                  10175 : 'Manhattan',
+                  10151 : 'Manhattan',
+                  10173 : 'Manhattan',
+                  10178 : 'Manhattan',
+                  10121 : 'Manhattan',
+                  10123 : 'Manhattan',
+                  10106 : 'Manhattan',
+                  10158 : 'Manhattan',
+                  10041 : 'Manhattan',
+                  10120 : 'Manhattan',
+                  10278 : 'Manhattan',
+                  10155 : 'Manhattan',
+                  10043 : 'Manhattan',
+                  10081 : 'Manhattan',
+                  10096 : 'Manhattan',
+                  10097 : 'Manhattan',
+                  10196 : 'Manhattan',
+                  10196 : 'Manhattan',
+                  10275 : 'Manhattan',
+                  10265 : 'Manhattan',
+                  10045 : 'Manhattan',
+                  10047 : 'Manhattan',
+                  10047 : 'Manhattan',
+                  10080 : 'Manhattan',
+                  10203 : 'Manhattan',
+                  10259 : 'Manhattan',
+                  10260 : 'Manhattan',
+                  10285 : 'Manhattan',
+                  10286 : 'Manhattan',
+                  11371 : 'Queens',
+                  11361 : 'Queens',
+                  10036 : 'Manhattan',
+                  11414 : 'Queens',
+                  10310 : 'Staten Island',
+                  11249 : 'Brooklyn',
+                  10162 : 'Manhattan',
+                  10119 : 'Manhattan'}
+                  
+# data from : https://data.cityofnewyork.us/resource/kpav-sd4t.json <-- API
+
+url = 'https://raw.githubusercontent.com/Michel-gzz/Project-Data/main/NYC_Jobs.csv'
+
+df = pd.read_csv(url)
+
+# gets rid of columns we dont need, then partitions the data frame 
+# to look at only full time jobs, & drops all rows with a Nan value
+
+df = df.drop(columns=['Title Classification', 
+                      'Title Code No', 
+                      'Level',
+                      'Civil Service Title', 
+                      'Job Description', 
+                      'Minimum Qual Requirements', 
+                      'Preferred Skills', 
+                      'Additional Information', 
+                      'To Apply', 
+                      'Hours/Shift', 
+                      'Work Location 1', 
+                      'Recruitment Contact', 
+                      'Residency Requirement', 
+                      'Post Until', 
+                      'Posting Updated', 
+                      'Process Date'])
+
+df = df[df['Full-Time/Part-Time indicator'] == 'F']
+
+df = df.dropna()
+
+# this will gather all similar catagories 
+# into one of the catagories in the job_cats list
+# (clustering)
+
+for i in range(0, len(job_cats)):
+  
+  df.loc[df['Job Category'].str.contains(job_cats[i]), 'Job Category'] = job_cats[i]
+
+# This will replace all addresses with their zip codes only, then
+# it will sum up the number of positions based on the zip code
+# and creates a new dataframe with just the zip codes and
+# count of jobs
+
+keys = address_dict.keys()
+
+for i in keys:
+
+  df.loc[df['Work Location'].str.contains(i, na=False), 'Work Location'] = address_dict[i]
+
+df = df.rename(columns={'Work Location' : 'Zip Code'})
+
+df = df[df['Zip Code'] != 0].reset_index(drop = True)
+
+# creates a new dataframe that adds the # of postions
+# by zip code and job category
+
+df_jobs = df.groupby(by = ['Zip Code', 'Job Category', 'Career Level']).sum()
+
+df_jobs = df_jobs.reset_index()
+
+df_jobs = df_jobs[['Zip Code', 'Job Category', 'Career Level', '# Of Positions', ]]
+
+df_jobs = df_jobs.rename(columns = {'# Of Positions' : 'Count'})
+
+# gets the median salary from the range of salaries
+
+median = (df['Salary Range From'] + df['Salary Range To'])/2
+
+df['Median Salary'] = median
+
+# converts hourly rates into anual salaries and cuts off
+# jobs that pay under $20,000 a year
+
+h_to_s = (df[df['Salary Frequency'] == 'Hourly']['Median Salary'] * 40 * 52)
+
+df.loc[df['Salary Frequency'] == 'Hourly', 'Median Salary'] = h_to_s
+
+df = df.drop(columns = ['Salary Range From', 'Salary Range To', 'Salary Frequency'])
+
+df = df[df['Median Salary'] >= 20000]
+
+df = df.reset_index(drop = True)
+
+# Adds the name of the borough to the data frame for each zip code
+
+names_of_boro = []
+
+for idx, value in df['Zip Code'].iteritems():
+
+  names_of_boro.append(zip_names_dict[value])
+
+df['Name'] = pd.Series(names_of_boro)
+
+df
+
+######################################################################################################
+######################################################################################################
+
+# (Ignore), I used this to print a list of all job catagories
+# avaliable to find the general job catagories,
+# the list is sorted by length of the string
+
+#jobs = list(df['Job Category'].unique())
+
+#jobs.sort(key = len)
+
+#jobs
+
+######################################################################################################
+######################################################################################################
+
+# (Ignore), I used this to print all the unique addresses for the
+# dictionary and to find their zip codes
+
+# for i in range(0,len(df['Work Location'])):
+#    if (i % 10 == 0):
+
+#      print()
+
+#    else:
+
+#      print(df['Work Location'][i])
+
+######################################################################################################
+######################################################################################################
+
+# geodata from : https://data.cityofnewyork.us/resource/7t3b-ywvw.json
+
+url_boro = 'https://raw.githubusercontent.com/Michel-gzz/Project-Data/main/Borough%20Boundaries.geojson'
+
+df_boro = gpd.read_file(url_boro)
+
+df_boro = df_boro.rename(columns = {'boro_name':'Name'})
+
+df_boro.geometry = df_boro.geometry.simplify(.00005)
+
+# geodata from :  https://data.beta.nyc/dataset/3bf5fb73-edb5-4b05-bb29-7c95f4a727fc/resource/894e9162-871c-4552-a09c-c6915d8783fb/download/zip_code_040114.geojson
+
+url_zip = 'https://raw.githubusercontent.com/Michel-gzz/Project-Data/main/zip_code_040114.geojson'
+
+df_zip = gpd.read_file(url_zip)
+
+df_zip.geometry = df_zip.geometry.simplify(.00005)
+
+# Normalizes the names to the five boroughs
+
+old_names = ['New York','Richmond','Kings']
+
+new_names = ['Manhattan','Staten Island', 'Brooklyn']
+
+for i in range(0, len(old_names)):
+  
+  df_zip.loc[df_zip['COUNTY'] == old_names[i], 'COUNTY'] = new_names[i]
+
+# renames the column names in the geodataframe
+
+df_zip = df_zip.rename(columns = {'COUNTY':'Name', 'ZIPCODE':'Zip Code', 'POPULATION':'Population'})
+
+# makes zipcodes into int values since our original df
+# has int type zipcodes
+
+df_zip['Zip Code'] = df_zip['Zip Code'].astype(int)
+
+# This will get all the zipcodes that don't have any jobs
+# in them
+
+zip_codes = df_zip['Zip Code'].unique()
+
+job_zip = df['Zip Code'].unique()
+
+zip_miss = []
+
+for i in range(0,len(zip_codes)):
+
+  if zip_codes[i] not in job_zip:
+
+    zip_miss.append(zip_codes[i])
+
+# makes the counts column which are all zeros
+
+zip_zero = pd.Series(np.zeros_like(zip_miss))
+
+Zip_missing = pd.DataFrame(zip_miss)
+
+Zip_missing = Zip_missing.rename(columns = {0 : 'Zip Code'})
+
+Zip_missing['Count'] = zip_zero
+
+# Gets the data frame with the zipcodes and their counts
+# which we merge it with our original geodataframe
+# this will let us plot a cloropleth of our data
+
+Zip_all_df = pd.concat([df_jobs, Zip_missing], axis = 0)
+
+Zip_all = Zip_all_df[Zip_all_df['Zip Code'] != 0].reset_index(drop = True)
+
+df_zip = df_zip.merge(Zip_all, on = 'Zip Code')
+
+######################################################################################################
+######################################################################################################
+
+# (Ignore) Used this to make the dictioanry that
+# connect the zipcode to one of the boroughs
+
+#df_names_zip = df_zip[['Zip Code', 'Name']]
+
+#for idx, value in df_names_zip.iterrows():
+
+#  print(value[0], ": '" + value[1] + "',")
+
+######################################################################################################
+######################################################################################################
+
+# Selcetions needed
+names_select = alt.selection_multi(fields = ['Name'])
+
+job_select = alt.selection_single(fields = ['Job Category'])
+
+job_level_dropdown = alt.binding_select(options = [None, 'Experienced (non-manager)', 'Student', 'Manager', 'Entry-Level','Executive'], 
+                                        labels = ['All','Experienced (non-manager)', 'Student', 'Manager', 'Entry-Level','Executive'],
+                                        name = 'Filter by Career Level:'
+                                        )
+job_level_select = alt.selection_single(fields=['Career Level'], bind = job_level_dropdown)
+
+# This will create a map of the boroughs of new york city
+
+# ['Manhattan','Staten Island', 'Brooklyn','Queens', 'Bronx']
+
+# The boroughs map is used as a selection tool
+# for the zipcodes map (the selection is a single select)
+
+boromap = alt.Chart(df_boro).mark_geoshape(
+    
+    stroke = 'black'
+
+).encode(
+    
+    color = alt.condition(names_select, 
+                          alt.value('gray'), 
+                          alt.value('lightgray')
+                          ),
+    
+    tooltip = ['Name'],
+
+).project(
+    
+    type = 'albersUsa'
+
+).add_selection(
+    
+    names_select
+    
+).properties(width = 200, height = 200, title = 'Choose a Borough')
+
+######################################################################################################
+######################################################################################################
+
+zipmap_all = alt.Chart(df_zip).mark_geoshape(
+
+    stroke = 'black',
+    
+).encode(
+
+    color = alt.Color('Count:Q', scale = alt.Scale(scheme='lightmulti')),
+    
+    tooltip = ['Zip Code', alt.Tooltip('Count:Q', title = 'Total Jobs Offered')],
+
+    
+).project(
+    
+    type = 'albersUsa'
+
+).transform_joinaggregate(
+    
+    Count = 'sum(Count)',
+
+    groupby = ['Zip Code']
+    
+).add_selection(
+    
+    job_level_select
+    
+).transform_filter(
+    
+    names_select
+  
+).properties(width = 450, height = 400, 
+             title = 'Cloropleth of All Job Postings by Zip Code')
+
+######################################################################################################
+######################################################################################################
+
+zipmap_jobs = alt.Chart(df_zip).mark_geoshape(
+
+    stroke = 'black',
+    
+).encode(
+
+    color = alt.Color('Count:Q', scale = alt.Scale(scheme='lightmulti')),
+    
+    tooltip = ['Zip Code', alt.Tooltip('Count:Q', title = 'Jobs Offered')],
+
+    
+).project(
+    
+    type = 'albersUsa'
+    
+).transform_joinaggregate(
+    
+    Count = 'sum(Count)',
+
+    groupby = ['Zip Code', 'Job Category']
+
+).transform_filter(
+    
+    names_select
+  
+).transform_filter(
+    
+    job_select
+  
+).transform_filter(
+
+    job_level_select
+
+).properties(width = 450, height = 400, title = 'Job Postings by Zip Code & Job Category')
+
+colors = alt.Scale(domain=(job_cats), range= ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31a1c', 
+                                              '#fdbf6f', '#ff7f00', '#cab2d6', '#6a3d9a','#b15928', '#800000',
+                                              'black'])
+
+
+salaries = alt.Chart(df).mark_bar().encode(
+    
+    x = alt.X('Median Salary:Q', 
+              bin = alt.Bin(maxbins= 15), 
+              sort = '-x',
+              axis = alt.Axis(format = '$f')),
+    y = alt.Y('count():Q'),
+    color = alt.condition(job_select, 
+                          alt.Color('Job Category:N', scale = colors), 
+                          alt.value('lightgrey')
+                          ),
+
+).transform_filter(
+
+    job_level_select
+
+).transform_filter(
+    
+    job_select
+
+).transform_filter(
+    
+   names_select
+
+).properties(
+    width = 450, 
+    height = 200, 
+    title = 'Histogram of Salaries'
+)
+
+salaries.encoding.x.title = 'Salary (Annual)'
+
+######################################################################################################
+######################################################################################################
+
+fields = alt.Chart(df).mark_bar().encode(
+    
+    y = alt.Y('Job Category:N', sort = '-x'),
+    x = alt.X('sum:Q', title = 'Number of Jobs'),
+    color = alt.condition(job_select, 
+                          alt.Color('Job Category:N', scale = colors), 
+                          alt.value('lightgray')),
+    
+    tooltip = [alt.Tooltip('sum:Q', title = 'Jobs Offered')]
+    
+).add_selection(
+    
+    job_select
+
+).transform_filter(
+
+    job_level_select
+
+).transform_filter(
+    
+    names_select
+
+).transform_aggregate(
+    
+    sum = 'sum(# Of Positions)',
+
+    groupby = ['Job Category'],
+    
+).properties(
+    width = 350, 
+    height = 200, 
+    title = 'Number of Jobs per Job Catagory'
+)
+
+chart = (salaries & fields) & boromap | (zipmap_all & zipmap_jobs)
+
+chart
